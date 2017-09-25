@@ -1,0 +1,9 @@
+VERSION:3 SOURCE_TIMESTAMP:49838312
+NODE:I LEVEL:0 LINE:1 "C:\cvavr2\inc\i2c.h"
+NODE:F LEVEL:0 LINE:3 "alarm_mati(void)"
+NODE:F LEVEL:0 LINE:11 "set_rtc(void)"
+NODE:F LEVEL:0 LINE:19 "set_alarm(unsigned char jam,unsigned char menit)"
+NODE:F LEVEL:0 LINE:29 "set_waktu(unsigned char jam,unsigned char menit,unsigned char detik)"
+NODE:F LEVEL:0 LINE:39 "jam_brp(unsigned char * jam,unsigned char * menit,unsigned char * detik)"
+NODE:F LEVEL:0 LINE:51 "tgl_brp(unsigned char * tanggal,unsigned char * bulan,unsigned char * tahun)"
+NODE:F LEVEL:0 LINE:63 "set_tgl(unsigned char tanggal,unsigned char bulan,unsigned char tahun)"

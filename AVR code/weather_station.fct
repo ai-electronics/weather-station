@@ -1,0 +1,8 @@
+main DSTACK_USAGE:0 DSTACK_LEVEL:0 FILE:"weather_station.c" LINE:209
+printf DSTACK_USAGE:10 DSTACK_LEVEL:10 FILE:"C:\cvavr2\lib\stdio.lib" LINE:1476
+_print DSTACK_USAGE:26 DSTACK_LEVEL:36 FILE:"C:\cvavr2\lib\stdio.lib" LINE:871
+strlen DSTACK_USAGE:2 DSTACK_LEVEL:38 FILE:"C:\cvavr2\lib\string.lib" LINE:1706
+usart_rx_isr DSTACK_USAGE:13 DSTACK_LEVEL:51 FILE:"weather_station.c" LINE:94
+printf DSTACK_USAGE:10 DSTACK_LEVEL:61 FILE:"C:\cvavr2\lib\stdio.lib" LINE:1476
+_print DSTACK_USAGE:26 DSTACK_LEVEL:87 FILE:"C:\cvavr2\lib\stdio.lib" LINE:871
+strlen DSTACK_USAGE:2 DSTACK_LEVEL:89 FILE:"C:\cvavr2\lib\string.lib" LINE:1706

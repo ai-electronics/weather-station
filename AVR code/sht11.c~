@@ -1,0 +1,220 @@
+typedef union 
+{ unsigned int i;
+  float f;
+} value;
+
+enum {TEMP,HUMI};
+
+#define        DATA_OUT           PORTC.2
+#define        DATA_IN            PINC.2
+#define        SCK                PORTC.3 
+#define noACK 0
+#define ACK   1        
+                            //adr  command  r/w
+#define STATUS_REG_W 0x06   //000   0011    0
+#define STATUS_REG_R 0x07   //000   0011    1
+#define UKUR_SUHU    0x03   //000   0001    1
+#define UKUR_HUMI    0x05   //000   0010    1
+#define RESET        0x1e   //000   1111    0
+
+unsigned int nilaisuhu[2]={0,0};
+
+//Untuk menulis data ke SHT11
+char tulis_SHT(unsigned char bytte)
+{ 
+  unsigned char i,error=0;  
+  DDRC.2=1;    
+  for (i=0x80;i>0;i/=2) //shift bit 
+  { 
+    if (i & bytte)       
+    DATA_OUT=1; 
+    else DATA_OUT=0;                       
+    SCK=1;       //clk 
+    delay_us(5); //delay 5 us          
+    SCK=0;       
+  }
+  DATA_OUT=1;                          
+  DDRC.2=0;
+  SCK=1;                //clk #9 ack 
+  delay_us(2);
+  error=DATA_IN;        //cek ack (DATA akan di pull down oleh SHT11)
+  delay_us(2);
+  SCK=0;        
+  return error;         //cek jika ada error
+} 
+
+//Untuk membaca data dari SHT11
+char baca_SHT(unsigned char ack)
+{ 
+  unsigned char i,val=0;
+  DDRC.2=0;                // DATA Input
+  for (i=0x80;i>0;i/=2)             //shift bit
+  { SCK=1;                          //clk       
+    delay_us(2);
+    if (DATA_IN) val=(val | i);     //baca bit  
+    delay_us(2);
+    SCK=0;
+  }   
+  DDRC.2=1;
+  DATA_OUT=!ack;        //"ack==1" pull down DATA-Line 
+  SCK=1;                //clk #9 ack
+  delay_us(5);          //delay 5 us 
+  SCK=0;
+  DATA_OUT=1;           //DATA-line                                                                
+  return val;
+} 
+//----------------------------------------------------------------------------------
+// menghasilkan sinyal awal untuk transmisi data 
+//       _____         ________
+// DATA:      |_______|
+//           ___     ___
+// SCK : ___|   |___|   |______
+//----------------------------------------------------------------------------------
+
+//Untuk memulai transmisi data
+void start_SHT(void)
+{                        
+   DDRC.2=1;
+   DATA_OUT=1; SCK=0;   //Inisial state
+   delay_us(2);
+   SCK=1;
+   delay_us(2);
+   DATA_OUT=0;
+   delay_us(2);
+   SCK=0;  
+   delay_us(5);
+   SCK=1;
+   delay_us(2);
+   DATA_OUT=1;                   
+   delay_us(2);
+   SCK=0;      
+   DDRC.2=0;
+} 
+//----------------------------------------------------------------------------------
+// reset: DATA-line=1 dengan 9 SCK cycle di awal
+//       _____________________________________________________         ________
+// DATA:                                                      |_______|
+//          _    _    _    _    _    _    _    _    _        ___     ___
+// SCK : __| |__| |__| |__| |__| |__| |__| |__| |__| |______|   |___|   |______
+//----------------------------------------------------------------------------------
+
+//Untuk mereset koneksi dengan SHT11
+void reset_SHT(void)
+{  
+  unsigned char i; 
+  DDRC.2=1;
+  DATA_OUT=1; SCK=0;    //Inisial state
+  for(i=0;i<9;i++)      //9 SCK cycle
+  { SCK=1; 
+    delay_us(1);
+    SCK=0;
+    delay_us(1);
+  }
+  start_SHT();          //start transmisi data
+  DDRC.2=0;
+} 
+
+//Mengecek status register sensor
+char StatusReg_SHT(unsigned char *p_value, unsigned char *p_checksum)
+{ 
+  unsigned char error=0;
+  start_SHT();                   //start transmisi data
+  error=tulis_SHT(STATUS_REG_R); //mengirim command ke sensor
+  *p_value=baca_SHT(ACK);        //baca status register (8-bit)
+  *p_checksum=baca_SHT(noACK);   //baca checksum (8-bit)  
+  return error;               //error=1 jika tidak ada respon dari sensor
+}
+
+//Membaca data hasil pengukuran
+char ukur_SHT(unsigned char *p_checksum, unsigned char mode)
+{ 
+  unsigned error=0;
+ unsigned int temp=0;
+  start_SHT();                   //start transmisi data    
+
+  switch(mode){                     //mengirim command ke sensor
+    case TEMP        : error+=tulis_SHT(UKUR_SUHU); break;
+    case HUMI        : error+=tulis_SHT(UKUR_HUMI); break;
+    default     : break;         
+  }                  
+  DDRC.6=0;
+ while (1)
+ {        
+   if(DATA_IN==0) break; 
+//tunggu hingga sensor selesai melakukan pengukuran
+  } 
+  if(DATA_IN) error+=1;                
+// jika sudah timeout (2 detik)     
+
+  switch(mode){                     //mengirim command ke sensor
+    case TEMP        : temp=0;
+                       temp=baca_SHT(ACK);
+                       temp<<=8;
+                       nilaisuhu[0]=temp;
+                       temp=0;
+                       temp=baca_SHT(ACK);
+                       nilaisuhu[0]|=temp;
+                       break;
+    case HUMI        : temp=0;
+                       temp=baca_SHT(ACK);
+                       temp<<=8;
+                       nilaisuhu[1]=temp;
+                       temp=0;
+                       temp=baca_SHT(ACK);
+                       nilaisuhu[1]|=temp;
+                       break;
+    default     : break;         
+  }   
+  *p_checksum =baca_SHT(noACK);  //baca checksum     
+  return error;
+} 
+
+const float C1=-4.0;              
+const float C2=+0.0405;           
+const float C3=-0.0000028;        
+const float T1=+0.01;             
+const float T2=+0.00008;                
+  
+
+float hitung_SHT(float p_humidity, float *p_temperature)
+{
+  float rh_lin;             // rh_lin:  Kelembaban linear 
+  float rh_true;            // rh_true: Suhu untuk kompensasi kelembaban
+  float t_C;                // t_C   :  nilai Suhu
+
+  t_C=*p_temperature*0.01-40; 
+//mengubah nilai Suhu menjadi derajat Celcius [°C]
+  rh_lin=C3*(p_humidity)*(p_humidity) + C2*(p_humidity) + C1; 
+//mengubah nilai kelembaban dalam % [%RH]  
+  rh_true=(t_C-25)*(T1+T2*(p_humidity))+rh_lin; 
+//mengkompensasikan nilai suhu dan kelembaban[%RH]
+  if(rh_true>100)rh_true=100; 
+  if(rh_true<0.1)rh_true=0.1; 
+
+  *p_temperature=t_C; 
+   return rh_true;
+}                      
+                                  
+
+void baca_sht11(float *data_humi,float *data_temp){
+value humi_val,temp_val;
+unsigned char error,checksum,inp;
+reset_SHT();            
+error=0;            
+      error+=ukur_SHT(&checksum,HUMI);  //mengukur kelembaban
+      error+=ukur_SHT(&checksum,TEMP);  //mengukur suhu               
+      error += StatusReg_SHT(&inp, &checksum);
+      if(error!=0) 
+       {
+       reset_SHT();                 //jika ada error, reset koneksi   
+       }       
+      else
+       {
+       humi_val.f=(float)nilaisuhu[1];                   
+//mengubah integer menjadi float
+       temp_val.f=(float)nilaisuhu[0];                   
+       humi_val.f=hitung_SHT(humi_val.f,&temp_val.f); 
+       }
+       *data_humi=humi_val.f;
+       *data_temp=temp_val.f;
+}
